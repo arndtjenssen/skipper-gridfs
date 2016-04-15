@@ -299,7 +299,7 @@ module.exports = function GridFSStore (globalOpts) {
     }
 
     function _setURI() {
-        if (!globalOpts.uri || !_URIisValid(globalOpts.uri)) {
+        if (!globalOpts.uri) {
             globalOpts.uri = mongodburi.format({
                 username: globalOpts.username,
                 password: globalOpts.password,
@@ -358,12 +358,7 @@ module.exports = function GridFSStore (globalOpts) {
             globalOpts.bucket = bucket;
         }
     }
-
-    function _URIisValid(uri) {
-        var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
-        return regex.test(uri);
-    }
-
+    
     function _connectionBuilder(opts) {
 
         var db;
