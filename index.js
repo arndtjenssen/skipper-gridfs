@@ -218,18 +218,26 @@ module.exports = function GridFSStore (globalOpts) {
             // into this receiver.  (filename === `__newFile.filename`).
             receiver__._write = function onFile(__newFile, encoding, done) {
                 // console.log('write fd:',__newFile.fd);
+				// boolean to aoid running anything else after the first error is emitted.
+				var receiverError = false;
                 var fd = __newFile.fd;
 
 
                 receiver__.once('error', function (err, db) {
                     // console.log('ERROR ON RECEIVER__ ::',err);
-                    db.close();
-                    done(err);
+					if(!receiverError){
+						receiverError = true;
+						db.close();
+						done(err);
+					}
                 });
 
                 MongoClient.connect(globalOpts.uri, _getOptions(), function (err, db) {
                     if (err) {
-                        receiver__.emit('error', err);
+						if(!receiverError){
+							receiverError = true;
+                            receiver__.emit('error', err);
+						}
                     }
                     var gfs = Grid(db, mongo);
                     // console.log('Opened connection for (%s)',fd);
@@ -243,12 +251,18 @@ module.exports = function GridFSStore (globalOpts) {
                         }
                     });
                     __newFile.once('error', function (err) {
-                        receiver__.emit('error', err, db);
-                        // console.log('***** READ error on file ' + __newFile.filename, '::', err);
+						if(!receiverError){
+							receiverError = true;
+							receiver__.emit('error', err, db);
+							// console.log('***** READ error on file ' + __newFile.filename, '::', err);
+						}
                     });
                     outs.once('error', function failedToWriteFile(err) {
-                        receiver__.emit('error', err, db);
-                        // console.log('Error on file output stream- garbage collecting unfinished uploads...');
+						if(!receiverError){
+							receiverError = true;
+							receiver__.emit('error', err, db);
+							// console.log('Error on file output stream- garbage collecting unfinished uploads...');
+						}
                     });
                     outs.once('open', function openedWriteStream() {
                         // console.log('opened output stream for',__newFile.fd);
@@ -285,7 +299,7 @@ module.exports = function GridFSStore (globalOpts) {
     }
 
     function _setURI() {
-        if (!globalOpts.uri || !_URIisValid(globalOpts.uri)) {
+        if (!globalOpts.uri) {
             globalOpts.uri = mongodburi.format({
                 username: globalOpts.username,
                 password: globalOpts.password,
@@ -344,12 +358,7 @@ module.exports = function GridFSStore (globalOpts) {
             globalOpts.bucket = bucket;
         }
     }
-
-    function _URIisValid(uri) {
-        var regex = /^(mongodb:\/{2})?((\w+?):(\S+?)@|:?@?)([\w._-]+?):(\d+)\/([\w_-]+?).{0,1}([\w_-]+?)$/g;
-        return regex.test(uri);
-    }
-
+    
     function _connectionBuilder(opts) {
 
         var db;
